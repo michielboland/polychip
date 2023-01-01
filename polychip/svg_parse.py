@@ -2,6 +2,7 @@ import copy
 import math
 import re
 import shapely
+import shapely.affinity
 import shapely.geometry
 import shapely.validation
 import sys

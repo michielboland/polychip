@@ -99,9 +99,9 @@ def calculate_contacts(drawing):
 
     for id, c in drawing.contact_paths.items():
         contact = Contact(id, c)
-        contact.poly = next ((poly_dict[p.wkb] for p in poly_rtree.query(c) if p.intersects(c)), None)
-        contact.diff = next ((diff_dict[p.wkb] for p in diff_rtree.query(c) if p.intersects(c)), None)
-        contact.metal = next ((metal_dict[p.wkb] for p in metal_rtree.query(c) if p.intersects(c)), None)
+        contact.poly = next ((poly_dict[drawing.poly_array[p].wkb] for p in poly_rtree.query(c) if drawing.poly_array[p].intersects(c)), None)
+        contact.diff = next ((diff_dict[drawing.diff_array[p].wkb] for p in diff_rtree.query(c) if drawing.diff_array[p].intersects(c)), None)
+        contact.metal = next ((metal_dict[drawing.metal_array[p].wkb] for p in metal_rtree.query(c) if drawing.metal_array[p].intersects(c)), None)
         if contact.metal is not None and contact.diff is not None and contact.poly is not None:
             contact.metal = None
         count = 0
@@ -156,12 +156,12 @@ def find_transistors_and_number_diffs(drawing):
     t1 = datetime.datetime.now()
     difference = coerce_multipoly(drawing.multidiff.difference(drawing.multipoly))
     t2 = datetime.datetime.now()
-    print("Difference diffs: {:d} (in {:f} sec)".format(len(difference), (t2 - t1).total_seconds()))
+    print("Difference diffs: {:d} (in {:f} sec)".format(len(difference.geoms), (t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
     intersections = coerce_multipoly(drawing.multidiff.intersection(drawing.multipoly))
     t2 = datetime.datetime.now()
-    print("Intersection diffs: {:d} (in {:f} sec)".format(len(intersections), (t2 - t1).total_seconds()))
+    print("Intersection diffs: {:d} (in {:f} sec)".format(len(intersections.geoms), (t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
     contacted_intersections_array = []
@@ -171,21 +171,21 @@ def find_transistors_and_number_diffs(drawing):
     print("Diff contacts: {:d} (in {:f} sec)".format(len(diff_contacts.geoms), (t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
-    rtree = shapely.strtree.STRtree(diff_contacts)
+    rtree = shapely.strtree.STRtree(diff_contacts.geoms)
     t2 = datetime.datetime.now()
     print("R-tree constructed in {:f} sec".format((t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
     for intersection in intersections.geoms:
         candidates = rtree.query(intersection)
-        if len(candidates) != 0 and any(intersection.intersects(candidate) for candidate in candidates):
+        if len(candidates) != 0 and any(intersection.intersects(diff_contacts.geoms[candidate]) for candidate in candidates):
             contacted_intersections_array.append(intersection)
         else:
             gates_array.append(intersection)
 
     contacted_intersections = shapely.geometry.MultiPolygon(contacted_intersections_array)
     t2 = datetime.datetime.now()
-    print("Contacted intersections: {:d} (in {:f} sec)".format(len(contacted_intersections), (t2 - t1).total_seconds()))
+    print("Contacted intersections: {:d} (in {:f} sec)".format(len(contacted_intersections.geoms), (t2 - t1).total_seconds()))
     print("Gates: {:d}".format(len(gates_array)))
 
     t1 = datetime.datetime.now()
@@ -208,7 +208,7 @@ def find_transistors_and_number_diffs(drawing):
                 str(gate.centroid)))
             continue
         candidates = rtree.query(gate)
-        g = next(poly for poly in candidates if gate.intersects(poly))
+        g = next(drawing.poly_array[poly] for poly in candidates if gate.intersects(drawing.poly_array[poly]))
         if g is None:
             print("Error: transistor gate doesn't intersect any poly, which should never happen.")
         else:
@@ -590,7 +590,7 @@ if __name__ == "__main__":
         # drawing_bounding_box (float, float, float, float): Bounding box (minx, miny, maxx, maxy) for the InkscapeFile.
         layer_bounds = [m.bounds for m in [drawing.multicontact, drawing.multipoly, drawing.multidiff, drawing.multimetal]
             if m.bounds != ()]
-        drawing_bounding_box = shapely.ops.cascaded_union(
+        drawing_bounding_box = shapely.ops.unary_union(
             [shapely.geometry.box(*bounds) for bounds in layer_bounds]).bounds
 
         # pnames ([Label]): list of pin names.
