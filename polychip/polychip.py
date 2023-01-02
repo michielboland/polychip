@@ -589,7 +589,7 @@ if __name__ == "__main__":
 
         # drawing_bounding_box (float, float, float, float): Bounding box (minx, miny, maxx, maxy) for the InkscapeFile.
         layer_bounds = [m.bounds for m in [drawing.multicontact, drawing.multipoly, drawing.multidiff, drawing.multimetal]
-            if m.bounds != ()]
+            if not m.is_empty]
         drawing_bounding_box = shapely.ops.unary_union(
             [shapely.geometry.box(*bounds) for bounds in layer_bounds]).bounds
 
