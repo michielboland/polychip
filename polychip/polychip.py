@@ -154,31 +154,51 @@ def find_transistors_and_number_diffs(drawing):
     print("All polys: {:d}".format(len(drawing.poly_array)))
 
     t1 = datetime.datetime.now()
-    difference = coerce_multipoly(drawing.multidiff.difference(drawing.multipoly))
-    t2 = datetime.datetime.now()
-    print("Difference diffs: {:d} (in {:f} sec)".format(len(difference.geoms), (t2 - t1).total_seconds()))
-
-    t1 = datetime.datetime.now()
-    intersections = coerce_multipoly(drawing.multidiff.intersection(drawing.multipoly))
-    t2 = datetime.datetime.now()
-    print("Intersection diffs: {:d} (in {:f} sec)".format(len(intersections.geoms), (t2 - t1).total_seconds()))
-
-    t1 = datetime.datetime.now()
-    contacted_intersections_array = []
-    gates_array = []
-    diff_contacts = coerce_multipoly(intersections.intersection(drawing.multicontact))
-    t2 = datetime.datetime.now()
-    print("Diff contacts: {:d} (in {:f} sec)".format(len(diff_contacts.geoms), (t2 - t1).total_seconds()))
-
-    t1 = datetime.datetime.now()
-    rtree = shapely.strtree.STRtree(diff_contacts.geoms)
+    overlapping_contacts_array = []
+    embedded_contacts_array = []
+    rtree = shapely.strtree.STRtree(drawing.multipoly.geoms)
     t2 = datetime.datetime.now()
     print("R-tree constructed in {:f} sec".format((t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
+    for contact in drawing.multicontact.geoms:
+        candidates = rtree.query(contact)
+        if len(candidates) != 0 and any(contact.within(drawing.multipoly.geoms[candidate]) for candidate in candidates):
+            embedded_contacts_array.append(contact)
+        else:
+            overlapping_contacts_array.append(contact)
+
+    overlapping_contacts = shapely.geometry.MultiPolygon(overlapping_contacts_array)
+    embedded_contacts = shapely.geometry.MultiPolygon(embedded_contacts_array)
+    t2 = datetime.datetime.now()
+    print("Overlapping contacts: {:d}, embedded contacts: {:d} (in {:f} sec)".format(len(overlapping_contacts_array), len(embedded_contacts_array), (t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    noncontacted_poly = coerce_multipoly(drawing.multipoly.difference(overlapping_contacts))
+    t2 = datetime.datetime.now()
+    print("Noncontacted polys: {:d} (in {:f} sec)".format(len(noncontacted_poly.geoms), (t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    difference = coerce_multipoly(drawing.multidiff.difference(noncontacted_poly))
+    t2 = datetime.datetime.now()
+    print("Difference diffs: {:d} (in {:f} sec)".format(len(difference.geoms), (t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    intersections = coerce_multipoly(drawing.multidiff.intersection(noncontacted_poly))
+    t2 = datetime.datetime.now()
+    print("Intersection diffs: {:d} (in {:f} sec)".format(len(intersections.geoms), (t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    rtree = shapely.strtree.STRtree(embedded_contacts.geoms)
+    t2 = datetime.datetime.now()
+    print("R-tree constructed in {:f} sec".format((t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    contacted_intersections_array = []
+    gates_array = []
     for intersection in intersections.geoms:
         candidates = rtree.query(intersection)
-        if len(candidates) != 0 and any(intersection.intersects(diff_contacts.geoms[candidate]) for candidate in candidates):
+        if len(candidates) != 0 and any(intersection.intersects(embedded_contacts.geoms[candidate]) for candidate in candidates):
             contacted_intersections_array.append(intersection)
         else:
             gates_array.append(intersection)
