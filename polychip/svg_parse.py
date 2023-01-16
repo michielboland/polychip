@@ -474,6 +474,7 @@ def svgpath_to_shapely_path(element, trans, debug = False):
                     polygon = subpolygon
                 else:
                     polygon = polygon.union(subpolygon) 
+        assert not polygon.is_empty
         if debug:
             print("++ End path: {:s}".format(str(polygon)))
 
