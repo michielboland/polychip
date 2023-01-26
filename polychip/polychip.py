@@ -221,8 +221,9 @@ def find_transistors_and_number_diffs(drawing):
     for i, poly in enumerate(drawing.poly_array):
         poly_dict[poly.wkb] = i
 
+    diff_rtree = shapely.strtree.STRtree(drawing.diff_array)
     for gate in gates_array:
-        electrodes = [i for i, nongate in enumerate(drawing.diff_array) if gate.touches(nongate)]
+        electrodes = list(map(int, diff_rtree.query(gate, predicate="touches")))
         if len(electrodes) != 2:
             print("Error: transistor gate at {:s} doesn't appear to have two electrodes.".format(
                 str(gate.centroid)))
