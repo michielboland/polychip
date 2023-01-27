@@ -104,15 +104,7 @@ class InkscapeFile:
 
         self.to_screen_coords_transform_ = self.extract_screen_transform(root)
 
-        self.transform = {
-            Layer.CONTACTS: self.to_screen_coords_transform_,
-            Layer.POLY: self.to_screen_coords_transform_,
-            Layer.METAL: self.to_screen_coords_transform_,
-            Layer.DIFF: self.to_screen_coords_transform_,
-            Layer.QNAMES: self.to_screen_coords_transform_,
-            Layer.SNAMES: self.to_screen_coords_transform_,
-            Layer.PNAMES: self.to_screen_coords_transform_,
-        }
+        self.transform = {l: self.to_screen_coords_transform_ for l in Layer}
 
         self.contact_paths = {}
         poly_paths = {}
@@ -121,37 +113,30 @@ class InkscapeFile:
 
         layer = {}
 
-        layer[Layer.CONTACTS] = root.findall(Layer.CONTACTS.path(), namespaces)[0]
-        layer[Layer.POLY] = root.findall(Layer.POLY.path(), namespaces)[0]
-        layer[Layer.DIFF] = root.findall(Layer.DIFF.path(), namespaces)[0]
-        layer[Layer.METAL] = root.findall(Layer.METAL.path(), namespaces)[0]
+        for l in (Layer.POLY, Layer.DIFF, Layer.METAL, Layer.CONTACTS):
+            layer[l] = root.findall(l.path(), namespaces)[0]
 
-        namelayer = root.findall(Layer.QNAMES.path(), namespaces)
-        if len(namelayer) > 0:
-            layer[Layer.QNAMES] = namelayer[0]
-        namelayer = root.findall(Layer.SNAMES.path(), namespaces)
-        if len(namelayer) > 0:
-            layer[Layer.SNAMES] = namelayer[0]
-        namelayer = root.findall(Layer.PNAMES.path(), namespaces)
-        if len(namelayer) > 0:
-            layer[Layer.PNAMES] = namelayer[0]
+        for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES):
+            namelayer = root.findall(l.path(), namespaces)
+            if len(namelayer) > 0:
+                layer[l] = namelayer[0]
 
         for y in (y for y in Layer if y in layer):
             t = Transform.parse(layer[y].get('transform'))
             self.transform[y] = self.transform[y] @ t
         shapes = {}
 
-        shapes[Layer.CONTACTS] = root.findall(Layer.CONTACTS.path() + "/svg:path", namespaces)
-        shapes[Layer.CONTACTS] += root.findall(Layer.CONTACTS.path() + "/svg:rect", namespaces)
-        shapes[Layer.POLY] = root.findall(Layer.POLY.path() + "/svg:path", namespaces)
-        shapes[Layer.POLY] += root.findall(Layer.POLY.path() + "/svg:rect", namespaces)
-        shapes[Layer.DIFF] = root.findall(Layer.DIFF.path() + "/svg:path", namespaces)
-        shapes[Layer.DIFF] += root.findall(Layer.DIFF.path() + "/svg:rect", namespaces)
-        shapes[Layer.METAL] = root.findall(Layer.METAL.path() + "/svg:path", namespaces)
-        shapes[Layer.METAL] += root.findall(Layer.METAL.path() + "/svg:rect", namespaces)
-        shapes[Layer.QNAMES] = root.findall(Layer.QNAMES.path() + "/svg:text", namespaces)
-        shapes[Layer.SNAMES] = root.findall(Layer.SNAMES.path() + "/svg:text", namespaces)
-        shapes[Layer.PNAMES] = root.findall(Layer.PNAMES.path() + "/svg:text", namespaces)
+        for l in (
+            Layer.POLY,
+            Layer.DIFF,
+            Layer.METAL,
+            Layer.CONTACTS,
+        ):
+            shapes[l] = root.findall(l.path() + "/svg:path", namespaces)
+            shapes[l] += root.findall(l.path() + "/svg:rect", namespaces)
+
+        for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES):
+            shapes[l] = root.findall(l.path() + "/svg:text", namespaces)
 
         print("Processing {:d} contact paths".format(len(shapes[Layer.CONTACTS])))
         for p in shapes[Layer.CONTACTS]:
