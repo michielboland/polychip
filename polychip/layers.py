@@ -34,6 +34,7 @@ class Layer(Enum):
     QNAMES = "QNames"
     SNAMES = "SNames"
     PNAMES = "PNames"
+    CAPACITORS = "Capacitors"
 
     def path(self):
         return "./svg:g[@inkscape:groupmode='layer'][@inkscape:label='" + self.value + "']"
@@ -110,13 +111,14 @@ class InkscapeFile:
         poly_paths = {}
         diff_paths = {}
         metal_paths = {}
+        capacitor_paths = {}
 
         layer = {}
 
         for l in (Layer.POLY, Layer.DIFF, Layer.METAL, Layer.CONTACTS):
             layer[l] = root.findall(l.path(), namespaces)[0]
 
-        for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES):
+        for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES, Layer.CAPACITORS):
             namelayer = root.findall(l.path(), namespaces)
             if len(namelayer) > 0:
                 layer[l] = namelayer[0]
@@ -131,6 +133,7 @@ class InkscapeFile:
             Layer.DIFF,
             Layer.METAL,
             Layer.CONTACTS,
+            Layer.CAPACITORS,
         ):
             shapes[l] = root.findall(l.path() + "/svg:path", namespaces)
             shapes[l] += root.findall(l.path() + "/svg:rect", namespaces)
@@ -153,6 +156,10 @@ class InkscapeFile:
         print("Processing {:d} metal paths".format(len(shapes[Layer.METAL])))
         for p in shapes[Layer.METAL]:
             metal_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.METAL])
+
+        print("Processing {:d} capacitor paths".format(len(shapes[Layer.CAPACITORS])))
+        for p in shapes[Layer.CAPACITORS]:
+            capacitor_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.CAPACITORS])
 
         print("Processing qnames text")
         for t in shapes[Layer.QNAMES]:
@@ -190,8 +197,12 @@ class InkscapeFile:
         list.sort(self.diff_array, key = functools.cmp_to_key(InkscapeFile.poly_cmp))
         print("{:d} diffs".format(len(self.diff_array)))
 
-        self.multipoly = coerce_multipoly(shapely.ops.unary_union(
-            [p for p in poly_paths.values() if p is not None]))
+        all_poly = shapely.ops.unary_union([p for p in poly_paths.values() if p is not None])
+        if capacitor_paths:
+            caps = shapely.ops.unary_union([p for p in capacitor_paths.values() if p is not None])
+            all_poly = all_poly.difference(caps)
+
+        self.multipoly = coerce_multipoly(all_poly)
         self.poly_array = list(self.multipoly.geoms)
         list.sort(self.poly_array, key = functools.cmp_to_key(InkscapeFile.poly_cmp))
         print("{:d} polys".format(len(self.poly_array)))
