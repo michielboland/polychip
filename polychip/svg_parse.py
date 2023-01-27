@@ -466,6 +466,7 @@ def svgpath_to_shapely_path(element, trans, debug = False):
             if ring_orientation != shell_orientation:
                 if debug:
                     print("  -- hole (orientation: {!r:s})".format(ring_orientation))
+                assert polygon.intersects(subpolygon)
                 polygon = polygon.difference(subpolygon)
             else:
                 if debug:
