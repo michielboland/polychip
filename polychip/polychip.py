@@ -156,7 +156,8 @@ def find_transistors_and_number_diffs(drawing):
     t1 = datetime.datetime.now()
     overlapping_contacts_array = []
     embedded_contacts_array = []
-    rtree = shapely.strtree.STRtree(drawing.multipoly.geoms)
+    poly_minus_caps = coerce_multipoly(drawing.multipoly.difference(drawing.multicaps))
+    rtree = shapely.strtree.STRtree(poly_minus_caps.geoms)
     t2 = datetime.datetime.now()
     print("R-tree constructed in {:f} sec".format((t2 - t1).total_seconds()))
 
@@ -174,7 +175,7 @@ def find_transistors_and_number_diffs(drawing):
     print("Overlapping contacts: {:d}, embedded contacts: {:d} (in {:f} sec)".format(len(overlapping_contacts_array), len(embedded_contacts_array), (t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
-    noncontacted_poly = coerce_multipoly(drawing.multipoly.difference(overlapping_contacts))
+    noncontacted_poly = coerce_multipoly(poly_minus_caps.difference(overlapping_contacts))
     t2 = datetime.datetime.now()
     print("Noncontacted polys: {:d} (in {:f} sec)".format(len(noncontacted_poly.geoms), (t2 - t1).total_seconds()))
 

@@ -89,6 +89,7 @@ class InkscapeFile:
         multipoly(shapely.geometry.MultiPolygon): All the found polysilicon polygons.
         multidiff(shapely.geometry.MultiPolygon): All the found diffusion polygons.
         multimetal(shapely.geometry.MultiPolygon): All the found metal polygons.
+        multicaps(shapely.geometry.MultiPolygon): All the found capacitor polygons.
     """
     def __init__(self, root):
         self.qnames = []
@@ -102,6 +103,7 @@ class InkscapeFile:
         self.multipoly = shapely.geometry.MultiPolygon()
         self.multidiff = shapely.geometry.MultiPolygon()
         self.multimetal = shapely.geometry.MultiPolygon()
+        self.multicaps = shapely.geometry.MultiPolygon()
 
         self.to_screen_coords_transform_ = self.extract_screen_transform(root)
 
@@ -197,15 +199,14 @@ class InkscapeFile:
         list.sort(self.diff_array, key = functools.cmp_to_key(InkscapeFile.poly_cmp))
         print("{:d} diffs".format(len(self.diff_array)))
 
-        all_poly = shapely.ops.unary_union([p for p in poly_paths.values() if p is not None])
-        if capacitor_paths:
-            caps = shapely.ops.unary_union([p for p in capacitor_paths.values() if p is not None])
-            all_poly = all_poly.difference(caps)
-
-        self.multipoly = coerce_multipoly(all_poly)
+        self.multipoly = coerce_multipoly(shapely.ops.unary_union(
+            [p for p in poly_paths.values() if p is not None]))
         self.poly_array = list(self.multipoly.geoms)
         list.sort(self.poly_array, key = functools.cmp_to_key(InkscapeFile.poly_cmp))
         print("{:d} polys".format(len(self.poly_array)))
+
+        self.multicaps = coerce_multipoly(shapely.ops.unary_union(
+            [p for p in capacitor_paths.values() if p is not None]))
 
         self.multimetal = coerce_multipoly(shapely.ops.unary_union(
             [p for p in metal_paths.values() if p is not None]))
