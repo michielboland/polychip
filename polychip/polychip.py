@@ -327,25 +327,28 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
             Type.METAL: [None] * len(drawing.metal_array)}
     sig_multimap = collections.defaultdict(set)
 
+    metal_rtree = shapely.strtree.STRtree(drawing.metal_array)
+    poly_rtree = shapely.strtree.STRtree(drawing.poly_array)
+    diff_rtree = shapely.strtree.STRtree(drawing.diff_array)
+
     t1 = datetime.datetime.now()
     for sname in drawing.snames:
         spoint = sname.center
-        index = next( (i for i, p in enumerate(drawing.metal_array) if p.contains(spoint)), None)
-        if index is not None:
-            sigs[Type.METAL][index] = sname.text
-            sig_multimap[sname.text].add((Type.METAL, index))
-            continue
-
-        index = next( (i for i, p in enumerate(drawing.poly_array) if p.contains(spoint)), None)
-        if index is not None:
-            sigs[Type.POLY][index] = sname.text
-            sig_multimap[sname.text].add((Type.POLY, index))
-            continue
-
-        index = next( (i for i, p in enumerate(drawing.diff_array) if p.contains(spoint)), None)
-        if index is not None:
-            sigs[Type.DIFF][index] = sname.text
-            sig_multimap[sname.text].add((Type.DIFF, index))
+        found = False
+        for nodetype, rtree in (
+            (Type.METAL, metal_rtree),
+            (Type.POLY, poly_rtree),
+            (Type.DIFF, diff_rtree),
+        ):
+            indices = rtree.query(spoint, predicate="within")
+            if len(indices) > 0:
+                assert len(indices) == 1
+                found = True
+                index = int(indices[0])
+                sigs[nodetype][index] = sname.text
+                sig_multimap[sname.text].add((nodetype, index))
+                break
+        if found:
             continue
 
         print("Warning: label '{:s}' at {:s} not attached to anything".format(sname.text, str(spoint)))
