@@ -83,27 +83,52 @@ def calculate_contacts(drawing):
     cs = []
 
     poly_rtree = shapely.strtree.STRtree(drawing.poly_array)
-    poly_dict = {}
-    for i, poly in enumerate(drawing.poly_array):
-        poly_dict[poly.wkb] = i
-
     diff_rtree = shapely.strtree.STRtree(drawing.diff_array)
-    diff_dict = {}
-    for i, diff in enumerate(drawing.diff_array):
-        diff_dict[diff.wkb] = i
-
     metal_rtree = shapely.strtree.STRtree(drawing.metal_array)
-    metal_dict = {}
-    for i, metal in enumerate(drawing.metal_array):
-        metal_dict[metal.wkb] = i
 
     for id, c in drawing.contact_paths.items():
         contact = Contact(id, c)
-        contact.poly = next ((poly_dict[drawing.poly_array[p].wkb] for p in poly_rtree.query(c) if drawing.poly_array[p].intersects(c)), None)
-        contact.diff = next ((diff_dict[drawing.diff_array[p].wkb] for p in diff_rtree.query(c) if drawing.diff_array[p].intersects(c)), None)
-        contact.metal = next ((metal_dict[drawing.metal_array[p].wkb] for p in metal_rtree.query(c) if drawing.metal_array[p].intersects(c)), None)
-        if contact.metal is not None and contact.diff is not None and contact.poly is not None:
+        intersections = {}
+        for nodetype, rtree in (
+            (Type.POLY, poly_rtree),
+            (Type.DIFF, diff_rtree),
+            (Type.METAL, metal_rtree),
+        ):
+            indices = rtree.query(c, predicate="intersects")
+            n = len(indices)
+            intersections[nodetype] = n
+            if n > 0:
+                index = int(indices[0])
+                if nodetype == Type.POLY:
+                    contact.poly = index
+                elif nodetype == Type.DIFF:
+                    contact.diff = index
+                elif nodetype == Type.METAL:
+                    contact.metal = index
+        if (
+            contact.metal is not None
+            and contact.diff is not None
+            and contact.poly is not None
+        ):
             contact.metal = None
+        if contact.metal is not None and intersections[Type.METAL] > 1:
+            print(
+                "Warning: contact at {:s} connects to multiple metals".format(
+                    str(c.representative_point())
+                )
+            )
+        if intersections[Type.DIFF] > 1:
+            print(
+                "Warning: contact at {:s} connects to multiple diffs".format(
+                    str(c.representative_point())
+                )
+            )
+        if intersections[Type.POLY] > 1:
+            print(
+                "Warning: contact at {:s} connects to multiple polys".format(
+                    str(c.representative_point())
+                )
+            )
         count = 0
         contacted = "Isolated"
         if contact.metal is not None:
