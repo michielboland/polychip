@@ -179,7 +179,6 @@ def find_transistors_and_number_diffs(drawing):
     print("All polys: {:d}".format(len(drawing.poly_array)))
 
     t1 = datetime.datetime.now()
-    overlapping_contacts_array = []
     embedded_contacts_array = []
     poly_minus_caps = coerce_multipoly(drawing.multipoly.difference(drawing.multicaps))
     rtree = shapely.strtree.STRtree(poly_minus_caps.geoms)
@@ -188,16 +187,15 @@ def find_transistors_and_number_diffs(drawing):
 
     t1 = datetime.datetime.now()
     for contact in drawing.multicontact.geoms:
-        candidates = rtree.query(contact)
-        if len(candidates) != 0 and any(contact.within(drawing.multipoly.geoms[candidate]) for candidate in candidates):
+        candidates = rtree.query(contact, predicate="within")
+        if len(candidates) != 0:
+            assert len(candidates) == 1
             embedded_contacts_array.append(contact)
-        else:
-            overlapping_contacts_array.append(contact)
 
-    overlapping_contacts = shapely.geometry.MultiPolygon(overlapping_contacts_array)
     embedded_contacts = shapely.geometry.MultiPolygon(embedded_contacts_array)
+    overlapping_contacts = drawing.multicontact.difference(embedded_contacts)
     t2 = datetime.datetime.now()
-    print("Overlapping contacts: {:d}, embedded contacts: {:d} (in {:f} sec)".format(len(overlapping_contacts_array), len(embedded_contacts_array), (t2 - t1).total_seconds()))
+    print("Embedded contacts: {:d} (in {:f} sec)".format(len(embedded_contacts_array), (t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
     noncontacted_poly = coerce_multipoly(poly_minus_caps.difference(overlapping_contacts))
