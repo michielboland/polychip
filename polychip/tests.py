@@ -149,11 +149,11 @@ class PolychipTestCase(unittest.TestCase):
     def do_test(self, testname):
         key = testname[5:]
         filename = "test/" + key + ".svg"
-        netlist, _, _ = file_to_netlist(filename)
+        netlist, _, _, _ = file_to_netlist(filename)
         self.assertEqual(self.test_dict[key]['expected'], netlist)
 
     def get_gates(self, filename):
-        netlist, qs, drawing = file_to_netlist(filename)
+        netlist, qs, drawing, _ = file_to_netlist(filename)
         gates = Gates(netlist, qs, drawing.pnames)
         gates.find_all_the_things()
         return gates

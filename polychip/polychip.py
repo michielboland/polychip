@@ -314,7 +314,7 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
         print_qs (bool): Whether to print the transistor locations at the end.
 
     Returns:
-        (nets, qs, drawing):
+        (nets, qs, drawing, polygons):
             nets ([(netname, net)]):
                 netname (str): The name of the net, or None if unnamed.
                 net ({net_node}):
@@ -323,6 +323,12 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
                         qname (str): the name of the transistor
             qs ([Transistor]): All the transistors.
             drawing (InkscapeFile): The InkscapeFile.
+            polygons ([netname, polygon_array]):
+                netname (str): The name of the net, or None if unnamed.
+                polygon_array ({polygon_node}):
+                    polygon_node ((type, index)):
+                        type (Type): the type of polygon (METAL, POLY or DIFF).
+                        index (str): index of the polygon in the drawing
     """
     root = parse_inkscape_svg(file)
     drawing = InkscapeFile(root)
@@ -435,6 +441,7 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
     # And of course, if a net contains both power and ground, you just shorted the thing out, so
     # exit there, too.
     nets = {}
+    polygons = {}
     anonymous_net = 0
     # net ({(Type, int)}): A connected component (the set of nodes connected to each other)
     for net in nx.connected_components(G):
@@ -490,6 +497,7 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
                 qs_by_name[qname].electrode1_net = netname
         if len(component_net) > 0:
             nets[netname] = component_net
+            polygons[netname] = {x for x in net if x[0] == Type.METAL or x[0] == Type.POLY or x[0] == Type.DIFF}
     t2 = datetime.datetime.now()
     print("Constructed netlist of {:d} nets (in {:f} sec)".format(len(nets), (t2 - t1).total_seconds()))
 
@@ -498,7 +506,7 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
     if print_qs:
         print(qs)
 
-    return (nets, qs, drawing)
+    return (nets, qs, drawing, polygons)
 
 
 def nmos_nand_iter(nets, qs):
@@ -618,6 +626,8 @@ if __name__ == "__main__":
                         help="a JSON file to output the net, q, and drawing data to. Use with --input to skip a lot of work!")
     parser.add_argument("--input", metavar="<infile>", type=str, nargs=1, action="store",
                         help="a JSON file to input the net, q, and drawing data from. Use with --output to skip a lot of work!")
+    parser.add_argument("--polygons-output", metavar="<polygonsfile>", type=str, action="store",
+                        help="a JSON file with polygon output (use in combination with --output)")
     args = parser.parse_args()
 
     if args.input is None:
@@ -633,7 +643,7 @@ if __name__ == "__main__":
         #             qname (str): the name of the transistor
         # qs ([Transistor]): list of transistors found.
         # drawing (InkscapeFile): the InkscapeFile representation.
-        nets, qs, drawing = file_to_netlist(args.file, args.nets, args.qs)
+        nets, qs, drawing, polygons = file_to_netlist(args.file, args.nets, args.qs)
 
         # drawing_bounding_box (float, float, float, float): Bounding box (minx, miny, maxx, maxy) for the InkscapeFile.
         layer_bounds = [m.bounds for m in [drawing.multicontact, drawing.multipoly, drawing.multidiff, drawing.multimetal]
@@ -671,3 +681,12 @@ if __name__ == "__main__":
 
     if args.sch:
         write_sch_file("polychip.sch", drawing_bounding_box, gates)
+
+    if args.polygons_output:
+        with open(args.polygons_output, "wt", encoding="utf-8") as f:
+            json.dump({
+                "nets": [Net(netname, net) for netname, net in polygons.items()],
+                "metal": [p.wkt for p in drawing.metal_array],
+                "poly": [p.wkt for p in drawing.poly_array],
+                "diff": [p.wkt for p in drawing.diff_array],
+            }, f, cls=PolychipJsonEncoder)
