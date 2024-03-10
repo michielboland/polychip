@@ -930,7 +930,11 @@ class Gates(object):
         for i, q in enumerate(self.qs - self.nmos_resistor_qs):
             if not q.is_powering():
                 if q.is_grounding():
-                    G.add_edge(q.nongrounded_electrode_net(), "GND___." + str(i), q=q)
+                    nongrounded = q.nongrounded_electrode_net()
+                    if nongrounded is not None:
+                        G.add_edge(nongrounded, "GND___." + str(i), q=q)
+                    else:
+                        print(f"Warning: {q} has only ground electrodes")
                 else:
                     G.add_edge(q.electrode0_net, q.electrode1_net, q=q)
             if q.gate_net not in self.pulled_up_nets:
