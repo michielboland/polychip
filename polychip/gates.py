@@ -988,10 +988,13 @@ class Gates(object):
 
     def find_pass_transistors2(self):
         for q in self.qs:
-            for e in [q.electrode0_net, q.electrode1_net]:
-                if e not in self.logic_nets:
-                    self.pass_qs.add(PassTransistor(q, e))
-                    break
+            if q.electrode0_net == q.electrode1_net:
+                print(f"Warning: {q} connects electrode to itself ({q.electrode0_net})")
+            else:
+                for e in [q.electrode0_net, q.electrode1_net]:
+                    if e not in self.logic_nets:
+                        self.pass_qs.add(PassTransistor(q, e))
+                        break
 
         print("Found {:d} pass transistors.".format(len(self.pass_qs)))
 
