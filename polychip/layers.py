@@ -31,6 +31,8 @@ class Layer(Enum):
     POLY = "Poly"
     DIFF = "Diff"
     CONTACTS = "Contacts"
+    CONTACTS_DM = "diff-metal contacts"
+    CONTACTS_PM = "poly-metal contacts"
     QNAMES = "QNames"
     SNAMES = "SNames"
     PNAMES = "PNames"
@@ -104,6 +106,9 @@ class InkscapeFile:
         self.multidiff = shapely.geometry.MultiPolygon()
         self.multimetal = shapely.geometry.MultiPolygon()
         self.multicaps = shapely.geometry.MultiPolygon()
+        self.poly_tshapes = []
+        self.metal_tshapes = []
+        self.diff_tshapes = []
 
         self.to_screen_coords_transform_ = self.extract_screen_transform(root)
 
@@ -120,7 +125,14 @@ class InkscapeFile:
         for l in (Layer.POLY, Layer.DIFF, Layer.METAL, Layer.CONTACTS):
             layer[l] = root.findall(l.path(), namespaces)[0]
 
-        for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES, Layer.CAPACITORS):
+        for l in (
+            Layer.QNAMES,
+            Layer.SNAMES,
+            Layer.PNAMES,
+            Layer.CAPACITORS,
+            Layer.CONTACTS_DM,
+            Layer.CONTACTS_PM,
+        ):
             namelayer = root.findall(l.path(), namespaces)
             if len(namelayer) > 0:
                 layer[l] = namelayer[0]
@@ -140,6 +152,10 @@ class InkscapeFile:
             shapes[l] = root.findall(l.path() + "/svg:path", namespaces)
             shapes[l] += root.findall(l.path() + "/svg:rect", namespaces)
 
+        for l in (Layer.CONTACTS_DM, Layer.CONTACTS_PM):
+            shapes[Layer.CONTACTS] += root.findall(l.path() + "/svg:path", namespaces)
+            shapes[Layer.CONTACTS] += root.findall(l.path() + "/svg:rect", namespaces)
+
         for l in (Layer.QNAMES, Layer.SNAMES, Layer.PNAMES):
             shapes[l] = root.findall(l.path() + "/svg:text", namespaces)
 
@@ -147,21 +163,10 @@ class InkscapeFile:
         for p in shapes[Layer.CONTACTS]:
             self.contact_paths['c_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.CONTACTS])
 
-        print("Processing {:d} poly paths".format(len(shapes[Layer.POLY])))
-        for p in shapes[Layer.POLY]:
-            poly_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.POLY])
-
-        print("Processing {:d} diff paths".format(len(shapes[Layer.DIFF])))
-        for p in shapes[Layer.DIFF]:
-            diff_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.DIFF])
-
-        print("Processing {:d} metal paths".format(len(shapes[Layer.METAL])))
-        for p in shapes[Layer.METAL]:
-            metal_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.METAL])
-
-        print("Processing {:d} capacitor paths".format(len(shapes[Layer.CAPACITORS])))
-        for p in shapes[Layer.CAPACITORS]:
-            capacitor_paths['p_' + p.get('id')] = svgelement_to_shapely_polygon(p, self.transform[Layer.CAPACITORS])
+        self.paths_from_svg(shapes, Layer.POLY, poly_paths, self.poly_tshapes)
+        self.paths_from_svg(shapes, Layer.DIFF, diff_paths, self.diff_tshapes)
+        self.paths_from_svg(shapes, Layer.METAL, metal_paths, self.metal_tshapes)
+        self.paths_from_svg(shapes, Layer.CAPACITORS, capacitor_paths)
 
         print("Processing qnames text")
         for t in shapes[Layer.QNAMES]:
@@ -217,6 +222,23 @@ class InkscapeFile:
         print("{:d} qnames".format(len(self.qnames)))
         print("{:d} snames".format(len(self.snames)))
         print("{:d} pnames".format(len(self.pnames)))
+
+
+    def paths_from_svg(self, shapes, layer, paths, tshapes=None):
+        print("Processing {:d} {:s} paths".format(len(shapes[layer]), layer.value))
+        for p in shapes[layer]:
+            path = svgelement_to_shapely_polygon(p, self.transform[Layer.POLY])
+            paths['p_' + p.get('id')] = path
+            if tshapes is not None:
+                t = p.find('svg:title', namespaces)
+                if t is not None:
+                    tshapes.append(
+                        (
+                            "".join(t.itertext()).replace(" ", "_"),
+                            path,
+                            p.get("id"),
+                        )
+                    )
 
 
     def extract_screen_transform(self, root):

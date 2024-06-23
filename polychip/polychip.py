@@ -305,6 +305,17 @@ def print_node_path(nodes, drawing):
     print("}")
 
 
+def make_unique(title, titles, id):
+    if not title in titles:
+        titles.add(title)
+        return title
+    print(f"Warning: title {title} is not unique")
+    tmp = f"{title}({id})"
+    assert not tmp in titles
+    titles.add(tmp)
+    return tmp
+
+
 def file_to_netlist(file, print_netlist=False, print_qs=False):
     """Converts an Inkscape SVG file to a netlist and transistor list.
 
@@ -384,6 +395,32 @@ def file_to_netlist(file, print_netlist=False, print_qs=False):
 
     t2 = datetime.datetime.now()
     print("Attached {:d} signal names (in {:f} sec)".format(len(drawing.snames), (t2 - t1).total_seconds()))
+
+    t1 = datetime.datetime.now()
+    titles = set()
+    for nodetype, rtree, tshapes in (
+            (Type.METAL, metal_rtree, drawing.metal_tshapes),
+            (Type.POLY, poly_rtree, drawing.poly_tshapes),
+            (Type.DIFF, diff_rtree, drawing.diff_tshapes),
+    ):
+        for (ptitle, shape, id) in tshapes:
+            title = make_unique(ptitle, titles, id)
+            titles.add(title)
+            found = False
+            indices = rtree.query(shape, predicate="intersects")
+            if len(indices) > 0:
+                found = True
+                index = int(indices[0])
+                if sigs[nodetype][index] is None:
+                    sigs[nodetype][index] = title
+                    sig_multimap[title].add((nodetype, index))
+                else:
+                    print(f"sigs[nodetype][index]={sigs[nodetype][index]}, title={title}")
+            if not found:
+                print("Warning: label '{:s}' not attached to anything".format(title))
+
+    t2 = datetime.datetime.now()
+    print("Attached titles (in {:f} sec)".format((t2 - t1).total_seconds()))
 
     t1 = datetime.datetime.now()
     for qname in drawing.qnames:
