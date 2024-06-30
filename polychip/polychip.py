@@ -665,6 +665,8 @@ if __name__ == "__main__":
                         help="a JSON file to input the net, q, and drawing data from. Use with --output to skip a lot of work!")
     parser.add_argument("--polygons-output", metavar="<polygonsfile>", type=str, action="store",
                         help="a JSON file with polygon output (use in combination with --output)")
+    parser.add_argument("--lut-strategy", metavar="<strategy>", type=int, default=2,
+                        help="strategy to use when finding LUTs, one of 0 (no lookup), 1, or 2 (default)")
     args = parser.parse_args()
 
     if args.input is None:
@@ -714,7 +716,8 @@ if __name__ == "__main__":
 
     print("{:d} total transistors".format(len(gates.qs)))
 
-    gates.find_all_the_things()
+    if args.lut_strategy != 0:
+        gates.find_all_the_things(args.lut_strategy)
 
     if args.sch:
         write_sch_file("polychip.sch", drawing_bounding_box, gates)

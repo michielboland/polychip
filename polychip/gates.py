@@ -721,9 +721,7 @@ class Gates(object):
         """Returns a set dictionary of input to gate."""
         return set_dictionary(((i, g) for g in self.all_gates() for i in g.inputs))
 
-    def find_all_the_things(self):
-        lut_strategy = 2
-
+    def find_all_the_things(self, lut_strategy):
         self.find_pulldowns()
         self.find_power_qs()
         if lut_strategy == 2:
