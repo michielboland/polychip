@@ -109,6 +109,8 @@ class InkscapeFile:
         self.poly_tshapes = []
         self.metal_tshapes = []
         self.diff_tshapes = []
+        self.width = self.extract_width(root)
+        self.height = self.extract_height(root)
 
         self.to_screen_coords_transform_ = self.extract_screen_transform(root)
 
@@ -250,19 +252,8 @@ class InkscapeFile:
         Returns:
             Transform: The transform to get from SVG coordinates to Inkscape screen coordinates.
         """
-        height = root.get('height')
-        width = root.get('width')
-        xdpi = root.get(qname(root, "inkscape:export-xdpi"))
-        ydpi = root.get(qname(root, "inkscape:export-ydpi"))
-        if height.endswith('mm'):
-            h = float(xdpi) * float(height[:-2]) / 25.4
-        else:
-            h = float(height)
-
-        if width.endswith('mm'):
-            w = float(ydpi) * float(width[:-2]) / 25.4
-        else:
-            w = float(width)
+        w = self.width
+        h = self.height
 
         transform = Transform(1, 0, 0, -1, 0, h)
 
@@ -274,6 +265,24 @@ class InkscapeFile:
         scalex = w / extents[2]
         scaley = h / extents[3]
         return transform @ Transform.scale(scalex, scaley)
+
+
+    def extract_height(self, root):
+        height = root.get('height')
+        if height.endswith('mm'):
+            xdpi = root.get(qname(root, "inkscape:export-xdpi"))
+            return float(xdpi) * float(height[:-2]) / 25.4
+        else:
+            return float(height)
+
+
+    def extract_width(self, root):
+        width = root.get('width')
+        if width.endswith('mm'):
+            ydpi = root.get(qname(root, "inkscape:export-ydpi"))
+            return float(ydpi) * float(width[:-2]) / 25.4
+        else:
+            return float(width)
 
 
     def replace_diff_array(self, diffs):

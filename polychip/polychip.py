@@ -701,6 +701,8 @@ if __name__ == "__main__":
                     "qs": qs,
                     "pnames": pnames,
                     "drawing_bounding_box": drawing_bounding_box,  # note: this tuple becomes a list.
+                    "width": drawing.width,
+                    "height": drawing.height,
                 }, f, cls=PolychipJsonEncoder)
 
     if args.input is not None:
