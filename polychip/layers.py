@@ -3,6 +3,7 @@ import shapely
 import shapely.geometry
 import shapely.wkt
 
+import sys
 from enum import Enum, unique
 from svg_parse import *
 
@@ -228,19 +229,25 @@ class InkscapeFile:
 
     def paths_from_svg(self, shapes, layer, paths, tshapes=None):
         print("Processing {:d} {:s} paths".format(len(shapes[layer]), layer.value))
+        errors_found = False
         for p in shapes[layer]:
-            path = svgelement_to_shapely_polygon(p, self.transform[Layer.POLY])
-            paths['p_' + p.get('id')] = path
-            if tshapes is not None:
-                t = p.find('svg:title', namespaces)
-                if t is not None:
-                    tshapes.append(
-                        (
-                            "".join(t.itertext()).replace(" ", "_"),
-                            path,
-                            p.get("id"),
+            try:
+                path = svgelement_to_shapely_polygon(p, self.transform[Layer.POLY])
+                paths['p_' + p.get('id')] = path
+                if tshapes is not None:
+                    t = p.find('svg:title', namespaces)
+                    if t is not None:
+                        tshapes.append(
+                            (
+                                "".join(t.itertext()).replace(" ", "_"),
+                                path,
+                                p.get("id"),
+                            )
                         )
-                    )
+            except AssertionError as e:
+                print(e, file=sys.stderr)
+                errors_found = True
+        assert not errors_found
 
 
     def extract_screen_transform(self, root):
